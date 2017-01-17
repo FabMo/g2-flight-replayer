@@ -9,10 +9,11 @@ var FLIGHT_RECORD_PATH = '/opt/fabmo/log/g2-flight-log.json';
 var single_port_override = true;
 var control_token = 'C';
 var data_token = 'D';
-control_buffer = [];
-data_buffer = [];
-control_port = new serialport.SerialPort(CONTROL_PATH, {rtscts:true}, false);
-data_port = new serialport.SerialPort(DATA_PATH, {rtscts:true}, false);
+var control_buffer = [];
+var data_buffer = [];
+
+//control_port = new serialport.SerialPort(CONTROL_PATH, {rtscts:true}, false);
+//data_port = new serialport.SerialPort(DATA_PATH, {rtscts:true}, false);
 
 function loadFlightRecord(filename, callback) {
   fs.readFile(filename, function(err, data) {
@@ -29,7 +30,7 @@ var onControlData = function(data) {
 	for(var i=0; i<len; i++) {
 		c = s[i];
 		if(c === '\n') {
-			console.log(' <--' + control_token + '-- ' + control_buffer.join(''));
+			console.log(' <---------------' + control_token + '-- ' + control_buffer.join(''));
 			control_buffer = [];
 		} else {
 			control_buffer.push(c);
@@ -57,7 +58,7 @@ function connect(callback) {
   });
 }
 
-function replay(records, callback) {
+function replay(records, options, callback) {
   var startTime = new Date().getTime();
   if(records.length == 0) {
     return callback();
@@ -77,6 +78,22 @@ function replay(records, callback) {
       var currentTime = new Date().getTime() - startTime;
       var recordTime = record.t;
       var timeLeft = recordTime - currentTime;
+
+      // Manage skip interval
+      var skipTime = 0;
+      if(options.skip_start || options.skip_end) {
+        if(recordTime >= options.skip_start && recordTime <= options.skip_end) {
+          console.log("Skip");
+          records.shift();
+          setImmediate(consume, records)
+        }
+        if(recordTime > options.skip_end) {
+          skipTime = options.skip_end - options.skip_start;
+        }
+      }
+      // If we're passed the skipped time, lop off times
+      timeLeft = timeLeft - skipTime;
+
       // Sleep until it's time to execute this record
       if(timeLeft >= 0) {
         setTimeout(consume, timeLeft, records);
@@ -86,16 +103,20 @@ function replay(records, callback) {
 
         // Decode the data payload
         var data = record.data; /*new Buffer(record.data, 'base64').toString('utf8');*/
+        var timestamp = recordTime + '';
 
+        while(timestamp.length < 8) {
+          timestamp = '0' + timestamp
+        }
         // Write it to the appropriate channel
         switch(record.ch) {
           case 'C':
           case 'S':
-            console.log(' ---' + control_token + '-> ' + jsesc(data));
+            console.log(' --- ' + timestamp + ' ---' + control_token + '-> ' + jsesc(data));
             control_port.write(data);
             break;
           case 'D':
-            console.log(' ---' + data_token + '-> ' + jsesc(data));
+            console.log(' --- ' + timestamp + ' ---' + data_token + '-> ' + jsesc(data));
             data_port.write(data);
             break;
           default:
@@ -127,10 +148,22 @@ function replay(records, callback) {
 CONTROL_PATH = argv['control']
 DATA_PATH = argv['data']
 
+var control_port = new serialport.SerialPort(CONTROL_PATH, {rtscts:true}, false);
+var data_port = DATA_PATH ? new serialport.SerialPort(DATA_PATH, {rtscts:true}, false) : null;
+
+var skip_time = argv['skip']
+var options = {};
+
+if(skip_time) {
+    var times = skip_time.split(":")
+    options.skip_start = times[0];
+    options.skip_end = times[1];
+}
+
 loadFlightRecord(argv._[0], function(err, flightData) {
   if(err) { return console.error(err); }
   connect(function(err, data) {
-      replay(flightData.records, function() {
+      replay(flightData.records, options, function() {
         console.log("Replay complete.")
         process.exit();
       })
