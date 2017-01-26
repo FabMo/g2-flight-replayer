@@ -4,7 +4,7 @@ Replayer for fabmo flight recordings of G2 traffic.
 ## Overview
 This is a script for replaying G2 "flight logs" to help reproduce timing sensitive issues that are observed with the G2 firmware for debugging and test.
 
-flight logs are JSON formatted log files that record the traffic with a [G2](https://github.com/synthetos/g2) session.  They are produced by the [FabMo Engine](https://github.com/FabMo/FabMo-Engine)  The format is currently sort of a moving target.
+Flight logs are JSON formatted log files that record the traffic with a [G2](https://github.com/synthetos/g2) session.  They are produced by the [FabMo Engine](https://github.com/FabMo/FabMo-Engine)  The format is currently sort of a moving target, but broadly includes a timestamp, channel, and message contents for every message sent to or recieved from the motion system.
 
 ## Installation
 You need node.js.  You can just `npm install` to pull the node dependencies.
