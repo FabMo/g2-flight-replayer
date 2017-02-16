@@ -9,7 +9,7 @@ var control_token = 'C';
 var data_token = 'D';
 var control_buffer = [];
 var data_buffer = [];
-
+var recvTime = new Date().getTime();
 //control_port = new serialport.SerialPort(CONTROL_PATH, {rtscts:true}, false);
 //data_port = new serialport.SerialPort(DATA_PATH, {rtscts:true}, false);
 
@@ -25,13 +25,14 @@ function loadFlightRecord(filename, callback) {
 var onControlData = function(data) {
 	var s = data.toString('utf8');
 	var len = s.length;
-	for(var i=0; i<len; i++) {
+  for(var i=0; i<len; i++) {
 		c = s[i];
 		if(c === '\n') {
 			console.log(' <---------------' + control_token + '-- ' + control_buffer.join(''));
 			control_buffer = [];
 		} else {
 			control_buffer.push(c);
+      recvTime = new Date().getTime();
 		}
 	}
 };
@@ -73,7 +74,8 @@ function replay(records, options, callback) {
 
     var record = records[0];
     if(record.dir === 'out') {
-      var currentTime = new Date().getTime() - startTime;
+      var clockTime = new Date().getTime();
+      var currentTime = clockTime - startTime;
       var recordTime = record.t;
       var timeLeft = recordTime - currentTime;
 
@@ -90,10 +92,10 @@ function replay(records, options, callback) {
       }
       // If we're passed the skipped time, lop off times
       timeLeft = timeLeft - skipTime;
-
+      var timeSinceLastMessage = clockTime - recvTime;
       // If we encounter a long delay, cut it down to 50ms and time shift everything in the future accordingly
       if(options.quick) {
-        if(timeLeft > 3000) {
+        if(timeLeft > 3000 && timeSinceLastMessage > 1000) {
           console.log(' |------------------ TIME SHIFT BY ' + (timeLeft - 1000) + 'ms (--quick)');
           for(var i=0; i<records.length; i++) {
             records[i].t = (records[i].t - timeLeft) + 1000
@@ -104,7 +106,7 @@ function replay(records, options, callback) {
 
       // Sleep until it's time to execute this record
       if(timeLeft >= 0) {
-        setTimeout(consume, timeLeft, records);
+        setTimeout(consume, Math.min(timeLeft, 1000), records);
       } else {
         // Consume the record
         records.shift()
