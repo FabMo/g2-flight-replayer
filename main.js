@@ -3,8 +3,6 @@ var serialport = require('serialport');
 var jsesc = require('jsesc');
 var argv = require('minimist')(process.argv.slice(2));
 
-var CONTROL_PATH = '/dev/cu.usbmodem1421';
-var DATA_PATH = '/dev/ttyACM1';
 var FLIGHT_RECORD_PATH = '/opt/fabmo/log/g2-flight-log.json';
 var single_port_override = true;
 var control_token = 'C';
@@ -83,9 +81,8 @@ function replay(records, options, callback) {
       var skipTime = 0;
       if(options.skip_start || options.skip_end) {
         if(recordTime >= options.skip_start && recordTime <= options.skip_end) {
-          console.log("Skip");
           records.shift();
-          setImmediate(consume, records)
+          return setImmediate(consume, records)
         }
         if(recordTime > options.skip_end) {
           skipTime = options.skip_end - options.skip_start;
@@ -93,6 +90,17 @@ function replay(records, options, callback) {
       }
       // If we're passed the skipped time, lop off times
       timeLeft = timeLeft - skipTime;
+
+      // If we encounter a long delay, cut it down to 50ms and time shift everything in the future accordingly
+      if(options.quick) {
+        if(timeLeft > 3000) {
+          console.log(' |------------------ TIME SHIFT BY ' + (timeLeft - 1000) + 'ms (--quick)');
+          for(var i=0; i<records.length; i++) {
+            records[i].t = (records[i].t - timeLeft) + 1000
+          }
+          return setImmediate(consume, records);
+        }
+      }
 
       // Sleep until it's time to execute this record
       if(timeLeft >= 0) {
@@ -159,6 +167,8 @@ if(skip_time) {
     options.skip_start = times[0];
     options.skip_end = times[1];
 }
+
+options.quick = argv['quick'] || false;
 
 loadFlightRecord(argv._[0], function(err, flightData) {
   if(err) { return console.error(err); }
