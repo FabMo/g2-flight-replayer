@@ -3,7 +3,7 @@ var serialport = require('serialport');
 var jsesc = require('jsesc');
 var argv = require('minimist')(process.argv.slice(2));
 
-var FLIGHT_RECORD_PATH = '/opt/fabmo/log/g2-flight-log.json';
+var QUIET_TIMEOUT = 1000
 var single_port_override = true;
 var control_token = 'C';
 var data_token = 'D';
@@ -176,8 +176,14 @@ loadFlightRecord(argv._[0], function(err, flightData) {
   if(err) { return console.error(err); }
   connect(function(err, data) {
       replay(flightData.records, options, function() {
-        console.log("Replay complete.")
-        process.exit();
+        recvTime = new Date().getTime();
+        setInterval(function() {
+          clockTime = new Date().getTime();
+          if(clockTime - recvTime > QUIET_TIMEOUT) {
+            console.log("Replay complete.")
+            process.exit();
+          }
+        }, 100)
       })
   });
 });
