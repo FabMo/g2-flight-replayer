@@ -4,6 +4,7 @@ import json
 import argparse
 from threading import Timer, Thread, RLock
 
+
 class G2FlightReplayer(object):
     def __init__(self, control_path, data_path=None):
         self.control_path = control_path
@@ -83,13 +84,19 @@ def load_flight_recording(filename):
 
 def main(args):
     recording = load_flight_recording(args.filename)
-    player = G2FlightReplayer(args.control, args.data)
-    player.play(recording)
+    if(args.show):
+        for record in recording['records']:
+            if record['dir'] == 'out':
+                print record['data'].replace('\n', '\\n')
+    else:
+        player = G2FlightReplayer(args.control, args.data)
+        player.play(recording)
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Play a G2 Flight Recording')
     parser.add_argument('--control', help='Path to the control port')
     parser.add_argument('--data', help='Path to the data port')
+    parser.add_argument('--show', action='store_const', const=True, help='Show a printout of all the messages sent')
     parser.add_argument('filename', help='Replay JSON file')
     args = parser.parse_args()
     return args
