@@ -4,10 +4,12 @@
   "author": "ShopBotTools",
   "repository": "https://github.com/ShopBotTools/g2-flight-replayer.git",
   "license": "MIT",
+  "main":"./index.html",
+
   "dependencies": {
     "jsesc": "1.0.0",
     "minimist": "^1.2.0",
-    "serialport": "2.1.2"
+    "serialport": "^7.1.5"
   },
   "scripts": {
     "start": "node main.js"
